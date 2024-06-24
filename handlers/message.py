@@ -70,7 +70,7 @@ async def show_profile(message: Message, state: FSMContext):
             len(user.lessons()),
             "Выберите связь" if user.association_id is None or association is None else "Вы ученик" if association.student_id == user.user_id else "Вы учитель"
         ),
-        reply_markup=get_profile_keyboard(text, user.association_id if association is not None and association.teacher_id == user.user_id else None)
+        reply_markup=get_profile_keyboard(text, association.association_id if association is not None else None)
     )
 
 async def change_lesson_description_message(message: Message, state: FSMContext):
@@ -120,5 +120,6 @@ async def change_lesson_description_message(message: Message, state: FSMContext)
             teacher.username, student.username,
             lesson.description
         ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description not in [None, ""])
+        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description not in [None, ""]),
+        disable_web_page_preview=True
     )

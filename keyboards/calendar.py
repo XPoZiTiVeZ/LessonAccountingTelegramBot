@@ -8,7 +8,13 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 week_days = ('Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс')
 months = ('Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь')
 
-def get_years_keyboard(this_date: date = date.today(), back_date: date | str = date.today()) -> InlineKeyboardMarkup:
+def get_years_keyboard(this_date: None | date = None, back_date: None | str = None) -> InlineKeyboardMarkup:
+    if this_date is None:
+        this_date: date = date.today()
+    
+    if back_date is None:
+        back_date: date = date.today()
+    
     floor_year = this_date.year // 10 * 10
     current_year = lambda year: f"[{year}]" if year == date.today().year else f"{year}"
 
@@ -34,7 +40,13 @@ def get_years_keyboard(this_date: date = date.today(), back_date: date | str = d
     keyboard.adjust(*(2, 2, 2, 2, 2, 3, 1))
     return keyboard.as_markup()
 
-def get_months_keyboard(this_date: date = date.today(), back_date: date = date.today()) -> InlineKeyboardMarkup:
+def get_months_keyboard(this_date: None | date = None, back_date: None | date = None) -> InlineKeyboardMarkup:
+    if this_date is None:
+        this_date: date = date.today()
+    
+    if back_date is None:
+        back_date: date = date.today()
+
     now_month = date.today().month
     current_month = lambda month: f"[{months[month-1]}]" if month == now_month else f"{months[month-1]}"
 
@@ -54,7 +66,13 @@ def get_months_keyboard(this_date: date = date.today(), back_date: date = date.t
     keyboard.adjust(*(2, 2, 2, 2, 2, 2, 2, 1))
     return keyboard.as_markup()
 
-def get_days_keyboard(this_date: date = date.today(), lessons = []):
+def get_days_keyboard(this_date: None | date = None, lessons: None | list = None):
+    if this_date is None:
+        this_date: date = date.today()
+    
+    if lessons is None:
+        lessons = list()
+    
     now_year = date.today().year
     now_month = date.today().month
     now_day = date.today().day
@@ -95,9 +113,13 @@ def get_days_keyboard(this_date: date = date.today(), lessons = []):
     keyboard.adjust(2, 7, *[7 for _ in range(len(all_days)//7)], 3)
     return keyboard.as_markup()
 
-###################################################################
-
-def get_years_ml_keyboard(this_date: date = date.today(), back_date: date | str = date.today()) -> InlineKeyboardMarkup:
+def get_years_ml_keyboard(this_date: None | date = None, back_date: None | date | str = None) -> InlineKeyboardMarkup:
+    if this_date is None:
+        this_date: date = date.today()
+    
+    if back_date is None:
+        back_date: date = date.today()
+    
     floor_year = this_date.year // 10 * 10
     current_year = lambda year: f"[{year}]" if year == date.today().year else f"{year}"
 
@@ -123,7 +145,10 @@ def get_years_ml_keyboard(this_date: date = date.today(), back_date: date | str 
     keyboard.adjust(*(2, 2, 2, 2, 2, 3, 1))
     return keyboard.as_markup()
 
-def get_months_ml_keyboard(this_date: date = date.today()) -> InlineKeyboardMarkup:
+def get_months_ml_keyboard(this_date: None | date = None) -> InlineKeyboardMarkup:
+    if this_date is None:
+        this_date: date = date.today()
+    
     now_month = date.today().month
     now_year = date.today().year
     current_month = lambda month: f"[{months[month-1]}]" if month == now_month and this_date.year == now_year else f"{months[month-1]}"

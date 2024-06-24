@@ -53,7 +53,8 @@ async def on_startup(dp: Dispatcher):
     dp.callback_query.register(year_back_ml,            year_back_ml_filter)
     dp.callback_query.register(month_change_year_ml,    month_change_year_ml_filter)
     dp.callback_query.register(show_month_lessons,      month_select_ml_filter)
-    dp.callback_query.register(export_month_lessons, export_calendar_ml_filter)
+    dp.callback_query.register(export_month_lessons,    export_calendar_ml_filter)
+    dp.callback_query.register(export_month_lessons,    export_calendar_ml_profile_filter)
     dp.callback_query.register(month_cancel_ml,         month_cancel_ml_filter)
     
     

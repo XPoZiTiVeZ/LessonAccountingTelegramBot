@@ -72,6 +72,12 @@ def export_calendar_ml_filter(call: CallbackQuery) -> bool:
             return True
     return False
 
+def export_calendar_ml_profile_filter(call: CallbackQuery) -> bool:
+    match call.data.split("|"):
+        case "calendar_ml", _, "export_profile":
+            return True
+    return False
+
 def back_calendar_ml_filter(call: CallbackQuery) -> bool:
     match call.data.split("|"):
         case "calendar_ml", _:

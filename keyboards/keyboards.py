@@ -16,12 +16,14 @@ def get_menu_keyboard() -> ReplyKeyboardMarkup:
     keyboard.adjust(2, 2)
     return keyboard.as_markup()
 
-def get_menu_inline_keyboard(date: date = date.today()) -> InlineKeyboardBuilder:
+def get_menu_inline_keyboard(this_date = None) -> InlineKeyboardBuilder:
+    if this_date is None:
+        this_date: date = date.today()
     keyboard = InlineKeyboardBuilder()
     
     keyboard.add(
         InlineKeyboardButton(text="Профиль", callback_data="profile"),
-        InlineKeyboardButton(text="Показать занятия", callback_data=f"calendar|{date}"),
+        InlineKeyboardButton(text="Показать занятия", callback_data=f"calendar|{this_date}"),
         InlineKeyboardButton(text="Проверить занятия", callback_data="None"),
     )
     
@@ -41,7 +43,8 @@ def get_profile_keyboard(text, association_id):
 
     keyboard.add(InlineKeyboardButton(text=text, callback_data="profile|change"))
     if association_id is not None:
-        keyboard.add(InlineKeyboardButton(text=f"Удалить связь ({1})", callback_data=f"profile|{association_id}|delete|1"))
+        keyboard.add(InlineKeyboardButton(text=f"Удалить связь (1/3)", callback_data=f"profile|{association_id}|delete|1"))
+        keyboard.add(InlineKeyboardButton(text=f"Даты занятий в этом месяце", callback_data=f"calendar_ml|{date.today()}|export_profile"))
     keyboard.add(InlineKeyboardButton(text="назад", callback_data="menu"))
     
     keyboard.adjust(1)
@@ -50,7 +53,7 @@ def get_profile_keyboard(text, association_id):
 def get_delete_association_keyboard(association_id, n: int):
     keyboard = InlineKeyboardBuilder()
 
-    keyboard.add(InlineKeyboardButton(text=f"Удалить связь ({n})", callback_data=f"profile|{association_id}|delete|{n}"))
+    keyboard.add(InlineKeyboardButton(text=f"Удалить связь ({n}/3)", callback_data=f"profile|{association_id}|delete|{n}"))
     keyboard.add(InlineKeyboardButton(text="Отмена", callback_data="profile"))
     
     keyboard.adjust(1)
@@ -108,7 +111,7 @@ def get_month_lessons_keyboard(date: date):
 def get_export_month_lessons_keyboard(date: date):
     keyboard = InlineKeyboardBuilder()
     
-    keyboard.add(InlineKeyboardButton(text="Назад", callback_data=f"calendar_ml|{date}"))
+    keyboard.add(InlineKeyboardButton(text="Назад", callback_data=f"month|{date}|selected_ml"))
     
     keyboard.adjust(1)
     return keyboard.as_markup()

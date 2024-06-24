@@ -54,7 +54,7 @@ async def show_profile_call(call: CallbackQuery, state: FSMContext):
             len(user.lessons()),
             "Выберите связь" if user.association_id is None or association is None else "Вы ученик" if association.student_id == user.user_id else "Вы учитель"
         ),
-        reply_markup=get_profile_keyboard(text, user.association_id if association is not None and association.teacher_id == user.user_id else None)
+        reply_markup=get_profile_keyboard(text, user.association_id if association is not None else None)
     )
 
 async def delete_association(call: CallbackQuery, state: FSMContext):
@@ -68,7 +68,7 @@ async def delete_association(call: CallbackQuery, state: FSMContext):
             reply_markup=get_to_menu_keyboard()
         )
     
-    if int(repeat) < 4:
+    if int(repeat) <= 3:
         return await call.message.edit_text(
             "Подтвердите удаление связи",
             reply_markup=get_delete_association_keyboard(association_id, int(repeat) + 1)
@@ -149,12 +149,13 @@ async def show_lesson(call: CallbackQuery, state: FSMContext):
         return
 
     await call.message.edit_text(
-        "Занятие        {}\nСтатус:          {}\nУчитель:       @{}\nУченик:         @{}\nОписание:    {}".format(
+        "Занятие        {}\nСтатус:           {}\nУчитель:       @{}\nУченик:         @{}\nОписание:    {}".format(
             lesson.date.strftime("%d.%m.%Y"), lesson.status,
             teacher.username, student.username,
             "Нет" if lesson.description is None or lesson.description == "" else f"\n{lesson.description}"
         ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != "")
+        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != ""),
+        disable_web_page_preview=True
     )
 
 async def show_month_lessons(call: CallbackQuery, state: FSMContext):
@@ -169,29 +170,31 @@ async def show_month_lessons(call: CallbackQuery, state: FSMContext):
         "В {} {} года состоялось {} заняти{}".format(
             f"{months[this_date.month - 1][:-1]}е".lower(), this_date.year,
             lessons,
-            "я" if lessons % 10 in [0, 5, 6, 7, 8, 9] or lessons in range(11, 20) else "е" if lessons % 10 == 1 else "я"
+            "й" if lessons % 10 in [0, 5, 6, 7, 8, 9] or lessons in range(11, 20) else "е" if lessons % 10 == 1 else "я"
         ),
         reply_markup=get_month_lessons_keyboard(this_date)
     )
 
 async def export_month_lessons(call: CallbackQuery, state: FSMContext):
     user = await check_user(call.from_user, state)
-    _, this_date, _ = call.data.split("|")
+    _, this_date, ending = call.data.split("|")
     this_date = date.fromisoformat(this_date)
     
     months = ('Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь')
     lessons = user.lessons(this_date.month, this_date.year)
     
     await call.message.edit_text(
-        "Даты занятий {} {} года:\n{}".format(
+        "Даты {} занятий в {} {} года:\n{}".format(
+            len(lessons),
             f"{months[this_date.month - 1][:-1]}е".lower(),
             this_date.year,
             "\n".join(list(map(lambda lesson: str(lesson.date), lessons)))
         ),
-        reply_markup=get_export_month_lessons_keyboard(this_date)
+        reply_markup=get_export_month_lessons_keyboard(this_date) if ending == "export" else get_to_menu_keyboard()
     )
 
 async def back_calendar_ml(call: CallbackQuery, state: FSMContext):
+    await check_user(call.from_user, state)
     _, this_date = call.data.split("|")
     this_date = date.fromisoformat(this_date)
     
@@ -230,7 +233,8 @@ async def change_lesson_status(call: CallbackQuery, state: FSMContext):
             teacher.username, student.username,
             "Нет" if lesson.description is None or lesson.description == "" else f"\n{lesson.description}"
         ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != "")
+        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != ""),
+        disable_web_page_preview=True
     )
 
 async def change_lesson_description(call: CallbackQuery, state: FSMContext):
@@ -263,7 +267,8 @@ async def change_lesson_description(call: CallbackQuery, state: FSMContext):
     
     await call.message.edit_text(
         "Пришлите описание занятия. До 4000 символов.",
-        reply_markup=get_back_to_lesson_keyboard(this_date, association.association_id, description not in [None, ""])
+        reply_markup=get_back_to_lesson_keyboard(this_date, association.association_id, description not in [None, ""]),
+        disable_web_page_preview=True
     )
 
 async def delete_lesson_description(call: CallbackQuery, state: FSMContext):
@@ -293,5 +298,6 @@ async def delete_lesson_description(call: CallbackQuery, state: FSMContext):
             teacher.username, student.username,
             "Нет" if lesson.description is None or lesson.description == "" else f"\n{lesson.description}"
         ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != "")
+        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != ""),
+        disable_web_page_preview=True
     )
