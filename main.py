@@ -31,6 +31,7 @@ async def on_startup(dp: Dispatcher):
     dp.message.register(show_calendar,              F.text.lower() == "показать занятия")
     dp.callback_query.register(show_calendar_call,  show_calendar_filter)
     dp.message.register(show_calendar_ml,           F.text.lower() == "посчитать занятия за месяц")
+    dp.callback_query.register(show_calendar_ml_call,      show_calendar_ml_filter)
     
     dp.callback_query.register(back_calendar,       back_calendar_filter)
     dp.callback_query.register(day_change_year,     day_change_year_filter)
@@ -62,7 +63,16 @@ async def on_startup(dp: Dispatcher):
     dp.callback_query.register(change_lesson_description,   change_lesson_description_filter)
     dp.message.register(change_lesson_description_message,  Description.send)
     dp.callback_query.register(delete_lesson_description,   delete_lesson_description_filter)
+
     
+    dp.callback_query.register(show_lesson_files,   show_lesson_files_filter)
+    dp.callback_query.register(add_lesson_files,    add_lesson_files_filter)
+    dp.message.register(add_lesson_files_message,   Files.send, F.document != None)
+    dp.message.register(add_lesson_files_message,   Files.send, F.photo != None)
+    dp.callback_query.register(delete_lesson_file,  delete_lesson_file_filter)
+    
+
+
 async def start():
     create_db()
         

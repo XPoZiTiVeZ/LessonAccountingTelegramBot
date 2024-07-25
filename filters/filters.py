@@ -13,10 +13,11 @@ def show_link_filter(call: CallbackQuery) -> bool:
     return False
 
 def add_student_filter(message: Message) -> bool:
-    match message.text.split("?="):
-        case "/add", _:
-            return True
-    return False
+    if message.text is not None:
+        match message.text.split("?="):
+            case "/add", _:
+                return True
+        return False
 
 def show_profile_filter(call: CallbackQuery) -> bool:
     match call.data:
@@ -57,6 +58,24 @@ def change_lesson_description_filter(call: CallbackQuery) -> bool:
 def delete_lesson_description_filter(call: CallbackQuery) -> bool:
     match call.data.split("|"):
         case "delete_description", _, _:
+            return True
+    return False
+
+def show_lesson_files_filter(call: CallbackQuery) -> bool:
+    match call.data.split("|"):
+        case "files", _, _:
+            return True
+    return False
+
+def add_lesson_files_filter(call: CallbackQuery) -> bool:
+    match call.data.split("|"):
+        case "add_files", _, _:
+            return True
+    return False
+
+def delete_lesson_file_filter(call: CallbackQuery) -> bool:
+    match call.data.split("|"):
+        case "delete_file", _, _, _:
             return True
     return False
 

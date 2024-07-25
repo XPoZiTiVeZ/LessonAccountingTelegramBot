@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 
 from keyboards.calendar import *
 from db.db import User
+from handlers.callback import show_menu
 
 async def check_user(from_user, state: FSMContext) -> User:
     await state.clear()
@@ -92,8 +93,8 @@ async def day_change(callback: CallbackQuery, state: FSMContext):
         reply_markup=get_days_keyboard(this_date, lessons=user.lessons(this_date.month, this_date.year))
     )
 
-async def day_cancel(callback: CallbackQuery):
-    await callback.message.delete()
+async def day_cancel(callback: CallbackQuery, state: FSMContext):
+    await show_menu(callback, state)
 
 #######################################################
 
@@ -133,5 +134,5 @@ async def month_change_year_ml(callback: CallbackQuery):
         reply_markup=get_years_ml_keyboard(this_date)
     )
 
-async def month_cancel_ml(callback: CallbackQuery):
-    await callback.message.delete()
+async def month_cancel_ml(callback: CallbackQuery, state: FSMContext):
+    await show_menu(callback, state)

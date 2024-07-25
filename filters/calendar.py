@@ -6,6 +6,12 @@ def show_calendar_filter(call: CallbackQuery) -> bool:
             return True
     return False
 
+def show_calendar_ml_filter(call: CallbackQuery) -> bool:
+    match call.data.split("|"):
+        case "calendar_ml", _:
+            return True
+    return False
+
 def year_select_filter(call: CallbackQuery) -> bool:
     match call.data.split("|"):
         case "year", _, "selected":
@@ -51,6 +57,12 @@ def day_change_month_filter(call: CallbackQuery) -> bool:
 def day_select_filter(call: CallbackQuery) -> bool:
     match call.data.split("|"):
         case "day", _, "selected":
+            return True
+    return False
+
+def new_day_select_filter(call: CallbackQuery) -> bool:
+    match call.data.split("|"):
+        case "day", _, "selected", _, _:
             return True
     return False
 

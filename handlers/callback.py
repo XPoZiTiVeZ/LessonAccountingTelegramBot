@@ -1,4 +1,4 @@
-from aiogram.types import CallbackQuery
+from aiogram.types import Message, CallbackQuery, BufferedInputFile, InputMediaDocument
 from aiogram.fsm.context import FSMContext
 from datetime import date
 
@@ -32,6 +32,9 @@ async def show_calendar_call(call: CallbackQuery, state: FSMContext):
     this_date = date.fromisoformat(this_date)
     
     await call.message.edit_text("Выберите день занятия.", reply_markup=get_days_keyboard(this_date, lessons=user.lessons(this_date.month, this_date.year)))
+
+async def show_calendar_ml_call(call: CallbackQuery, state: FSMContext):
+    await call.message.answer("Выберите месяц.", reply_markup=get_months_ml_keyboard())
 
 async def show_profile_call(call: CallbackQuery, state: FSMContext):
     user = await check_user(call.from_user, state)
@@ -129,34 +132,32 @@ async def show_lesson(call: CallbackQuery, state: FSMContext):
     lesson = Lesson.get(this_date, user.association_id)
     
     if association is None:
-        await call.message.edit_text(
+        return await call.message.edit_text(
             "Ошибка, повторите выбор учителя или ученика в профиле и выберите день снова.",
             reply_markup=get_to_menu_keyboard()
         )
-        return
     
     association = Association.get(user.association_id)
     teacher, student = User.get(association.teacher_id), User.get(association.student_id)
     if lesson is None:
-        await call.message.edit_text(
+        message = await call.message.edit_text(
             "Занятие        {}\nСтатус:          {}\nУчитель:       @{}\nУченик:         @{}\nОписание:    {}".format(
                 this_date.strftime("%d.%m.%Y"), "Не состоялось",
                 teacher.username, student.username,
                 "Нет"
-            ),
-            reply_markup=get_lesson_keyboard(this_date, user.association_id, False),
+            )
         )
-        return
-
-    await call.message.edit_text(
+        await message.edit_reply_markup(reply_markup=get_lesson_keyboard(this_date, user.association_id, False, message.chat.id, message.message_id))
+    
+    message = await call.message.edit_text(
         "Занятие        {}\nСтатус:           {}\nУчитель:       @{}\nУченик:         @{}\nОписание:    {}".format(
             lesson.date.strftime("%d.%m.%Y"), lesson.status,
             teacher.username, student.username,
             "Нет" if lesson.description is None or lesson.description == "" else f"\n{lesson.description}"
         ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != ""),
         disable_web_page_preview=True
     )
+    await message.edit_reply_markup(reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != "", message.chat.id, message.message_id))
 
 async def show_month_lessons(call: CallbackQuery, state: FSMContext):
     user = await check_user(call.from_user, state)
@@ -221,21 +222,13 @@ async def change_lesson_status(call: CallbackQuery, state: FSMContext):
         )
         return
     
-    teacher, student = User.get(association.teacher_id), User.get(association.student_id)
     lesson = Lesson.get(this_date, association.association_id)
     if lesson is None:
         lesson = Lesson.add(date=this_date, description=None, status=statuses[0], association_id=association_id)
-    Lesson.change_status(lesson)
+    lesson.change_status()
     
-    await call.message.edit_text(
-        "Занятие        {}\nСтатус:          {}\nУчитель:       @{}\nУченик:         @{}\nОписание:    {}".format(
-            lesson.date.strftime("%d.%m.%Y"), lesson.status,
-            teacher.username, student.username,
-            "Нет" if lesson.description is None or lesson.description == "" else f"\n{lesson.description}"
-        ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != ""),
-        disable_web_page_preview=True
-    )
+    call = CallbackQuery(id=call.id, from_user=call.from_user, chat_instance=call.chat_instance, message=call.message, inline_message_id=call.inline_message_id, data=f"day|{this_date}|selected")
+    await show_lesson(call, state)
 
 async def change_lesson_description(call: CallbackQuery, state: FSMContext):
     user = await check_user(call.from_user, state)
@@ -267,7 +260,7 @@ async def change_lesson_description(call: CallbackQuery, state: FSMContext):
     
     await call.message.edit_text(
         "Пришлите описание занятия. До 4000 символов.",
-        reply_markup=get_back_to_lesson_keyboard(this_date, association.association_id, description not in [None, ""]),
+        reply_markup=get_back_to_lesson_from_description_keyboard(this_date, association.association_id, description not in [None, ""]),
         disable_web_page_preview=True
     )
 
@@ -277,27 +270,117 @@ async def delete_lesson_description(call: CallbackQuery, state: FSMContext):
     
     this_date = date.fromisoformat(this_date)
     association = Association.get(association_id)
-    teacher, student = User.get(association.teacher_id), User.get(association.student_id)
-    lesson = Lesson.get(this_date, association.association_id)
-    if lesson is None:
+    
+    if association is None:
         await call.message.edit_text(
-            "Занятие        {}\nСтатус:          {}\nУчитель:       @{}\nУченик:         @{}\nОписание:    {}".format(
-                this_date.strftime("%d.%m.%Y"), "Не состоялось",
-                teacher.username, student.username,
-                "Нет"
-            ),
-            reply_markup=get_lesson_keyboard(this_date, user.association_id, False),
+            "Ошибка, повторите выбор учителя или ученика в профиле и выберите день снова.",
+            reply_markup=get_to_menu_keyboard()
         )
         return
     
-    Lesson.change_description(lesson, None)
+    if association.association_id != user.association_id:
+        await call.message.edit_text(
+            "Ошибка, ваш учитель/ученик не совпадает с выбранным в профиле.",
+            reply_markup=get_to_menu_keyboard()
+        )
+        return
+
+    lesson = Lesson.get(this_date, association.association_id)
+    call = CallbackQuery(id=call.id, from_user=call.from_user, chat_instance=call.chat_instance, message=call.message, inline_message_id=call.inline_message_id, data=f"day|{this_date}|selected")
+    if lesson is None:
+        await show_lesson(call, state)
     
+    lesson.change_description(None)
+
+    await show_lesson(call, state)
+
+
+async def show_lesson_files(call: CallbackQuery, state: FSMContext):
+    user = await check_user(call.from_user, state)
+    _, this_date, association_id = call.data.split("|")
+    
+    this_date = date.fromisoformat(this_date)
+    association = Association.get(association_id)
+    lesson = Lesson.get(this_date, association.association_id)
+    
+    if association is None:
+        return await call.message.edit_text(
+            "Ошибка, повторите выбор учителя или ученика в профиле и выберите день снова.",
+            reply_markup=get_to_menu_keyboard()
+        )
+    
+    if association.association_id != user.association_id:
+        return await call.message.edit_text(
+            "Ошибка, ваш учитель/ученик не совпадает с выбранным в профиле.",
+            reply_markup=get_to_menu_keyboard()
+        )
+    
+    files = [] if lesson is None else lesson.files()
+    if len(files) > 0:
+        for file in files:
+            await call.message.answer_document(document=file.file_id)
+        return await call.message.answer("Прикреплённые файлы", reply_markup=get_lesson_files_keyboard(this_date, association.association_id, files))
+
+    await call.message.edit_text("Нет прикреплённых файлов", reply_markup=get_lesson_files_keyboard(this_date, association.association_id, files))
+
+async def add_lesson_files(call: CallbackQuery, state: FSMContext):
+    user = await check_user(call.from_user, state)
+    _, this_date, association_id = call.data.split("|")
+    
+    this_date = date.fromisoformat(this_date)
+    association = Association.get(association_id)
+    lesson = Lesson.get(this_date, association.association_id)
+
+    if association is None:
+        return await call.message.answer(
+            "Ошибка, повторите выбор учителя или ученика в профиле и выберите день снова.",
+            reply_markup=get_to_menu_keyboard()
+        )
+    
+    if association.association_id != user.association_id:
+        return await call.message.answer(
+            "Ошибка, ваш учитель/ученик не совпадает с выбранным в профиле.",
+            reply_markup=get_to_menu_keyboard()
+        )
+    
+    files = [] if lesson is None else lesson.files()
+    if len(files) >= 8:
+        return await call.message.edit_text(
+            "Ошибка, файлов больше 8, удалите файлы, чтобы добавить другие.",
+            reply_markup=get_add_lesson_files_keyboard(this_date, association.association_id)
+        )
+
     await call.message.edit_text(
-        "Занятие        {}\nСтатус:          {}\nУчитель:       @{}\nУченик:         @{}\nОписание:    {}".format(
-            lesson.date.strftime("%d.%m.%Y"), lesson.status,
-            teacher.username, student.username,
-            "Нет" if lesson.description is None or lesson.description == "" else f"\n{lesson.description}"
-        ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description is not None and lesson.description != ""),
-        disable_web_page_preview=True
+        "Общее кол-во файлов в уроке должно быть не больше 8. Каждый следующий документ будет загружен, но лишние файлы загружены не будут.",
+        reply_markup=get_add_lesson_files_keyboard(this_date, association.association_id)
+    )
+    
+    await state.set_state(Files.send)
+    await state.set_data(data={"date": this_date, "association_id": association_id})
+
+
+async def delete_lesson_file(call: CallbackQuery, state: FSMContext):
+    user = await check_user(call.from_user, state)
+    _, this_date, association_id, file_id = call.data.split("|")
+    
+    this_date = date.fromisoformat(this_date)
+    association = Association.get(association_id)
+    lesson = Lesson.get(this_date, association.association_id)
+    
+    if association is None:
+        return await call.message.edit_text(
+            "Ошибка, повторите выбор учителя или ученика в профиле и выберите день снова.",
+            reply_markup=get_to_menu_keyboard()
+        )
+    
+    if association.association_id != user.association_id:
+        return await call.message.edit_text(
+            "Ошибка, ваш учитель/ученик не совпадает с выбранным в профиле.",
+            reply_markup=get_to_menu_keyboard()
+        )
+
+    lesson.delete_file(file_id)
+    await call.message.edit_text(
+        "Прикреплённые файлы",
+        reply_markup=get_lesson_files_keyboard(this_date, association.association_id, lesson.files())
     )

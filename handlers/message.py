@@ -1,19 +1,22 @@
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.utils.deep_linking import create_start_link, decode_payload
 from aiogram.filters import CommandObject
 from aiogram.fsm.context import FSMContext
 
-from bot import bot
+from bot import bot, mime_types
 from db.db import *
 from keyboards.keyboards import *
 from keyboards.calendar import *
+from handlers.callback import show_lesson
+from utils.states import Files
 
 import locale
 
 locale.setlocale(locale.LC_ALL, ('ru_RU', 'UTF-8'))
 
-async def check_user(from_user, state: FSMContext) -> User:
-    await state.clear()
+async def check_user(from_user, state: FSMContext, clear: bool = True) -> User:
+    if clear:
+        await state.clear()
 
     user: User | None = User.get(from_user.id)
     if user is None:
@@ -24,8 +27,10 @@ async def check_user(from_user, state: FSMContext) -> User:
 
 async def startmsg(message: Message,  state: FSMContext):
     await check_user(message.from_user, state)
-    await message.answer("Здраствуйте, я бот, который ведёт учёт ваших занятий, а также информацию о них.",
-                         reply_markup=get_menu_keyboard())
+    await message.answer(
+        "Здраствуйте, я бот, который ведёт учёт ваших занятий, а также информацию о них.",
+        reply_markup=get_menu_keyboard()
+    )
 
 async def add_student(message: Message, command: CommandObject, state: FSMContext):
     user = await check_user(message.from_user, state)
@@ -79,7 +84,6 @@ async def change_lesson_description_message(message: Message, state: FSMContext)
     
     this_date = data.get("date")
     association = Association.get(data.get("association_id"))
-    teacher, student = User.get(association.teacher_id), User.get(association.student_id)
     lesson = Lesson.get(this_date, association.association_id)
     
     if association is None:
@@ -98,28 +102,73 @@ async def change_lesson_description_message(message: Message, state: FSMContext)
     
     if len(message.text) > 4000:
         if lesson is None:
-            await message.answer(
+            return await message.answer(
                 "Ошибка, сообщение больше 4000 символов.",
                 reply_markup=change_description_keyboard(this_date)
             )
-            return
         
-        await message.answer(
+        return await message.answer(
             "Ошибка, сообщение больше 4000 символов.",
-            reply_markup=get_back_to_lesson_keyboard(this_date, association.association_id, False)
+            reply_markup=get_back_to_lesson_from_description_keyboard(this_date, association.association_id, False)
         )
-        return
 
     if lesson is None:
         lesson = Lesson.add(date=this_date, description=None, status=statuses[0], association_id=association.association_id)
     Lesson.change_description(lesson, message.text)
 
+    call = CallbackQuery(from_user=message.from_user, message=message, data=f"day|{this_date}|selected")
+    await show_lesson(call, state)
+
+
+async def add_lesson_files_message(message: Message, state: FSMContext):
+    data = await state.get_data()
+    user = await check_user(message.from_user, state, False)
+
+    this_date = data.get("date")
+    association_id = data.get("association_id")
+    association = Association.get(association_id)
+    lesson = Lesson.get(this_date, association.association_id)
+    
+    if association is None:
+        await message.answer(
+            "Ошибка, повторите выбор учителя или ученика в профиле и выберите день снова.",
+            reply_markup=get_to_menu_keyboard()
+        )
+        return
+    
+    if association.association_id != user.association_id:
+        await message.answer(
+            "Ошибка, ваш учитель/ученик не совпадает с выбранным в профиле.",
+            reply_markup=get_to_menu_keyboard()
+        )
+        return
+    
+    files = [] if lesson is None else lesson.files()
+    
+    input_file = None
+    if document := message.document:
+        input_file = document
+    
+    elif photo := message.photo[-1]:
+        input_file = photo
+    
+    if len(files) >= 8:
+        if lesson is None:
+            return await message.answer(
+                "Ошибка, файлов больше 8.",
+                reply_markup=change_description_keyboard(this_date)
+            )
+        return await message.answer(
+            "Ошибка, файлов больше 8.",
+            reply_markup=get_add_lesson_files_keyboard(this_date, association.association_id)
+        )
+    
+    if lesson is None:
+        lesson = Lesson.add(date=this_date, description=None, status=statuses[0], association_id=association.association_id)
+    
+    lesson.add_file(input_file.file_id, input_file.file_name)
+    
     await message.answer(
-        "Занятие        {}\nСтатус:          {}\nУчитель:       @{}\nУченик:         @{}\nОписание:\n{}".format(
-            lesson.date.strftime("%d.%m.%Y"), lesson.status,
-            teacher.username, student.username,
-            lesson.description
-        ),
-        reply_markup=get_lesson_keyboard(lesson.date, lesson.association_id, lesson.description not in [None, ""]),
-        disable_web_page_preview=True
+        "Файл успешно добавлен",
+        reply_markup=get_add_lesson_files_keyboard(this_date, association.association_id)
     )

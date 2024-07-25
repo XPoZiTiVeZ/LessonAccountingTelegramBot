@@ -1,7 +1,7 @@
-from random import randint
 from enum import Enum
-from sqlalchemy import create_engine, Column, Integer, String, Text, Date, ForeignKey, Enum, text
+from sqlalchemy import create_engine, Column, Integer, String, Text, Date, ForeignKey, Enum, text, BLOB
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.exc import IntegrityError
 from datetime import date
 
 URL = "sqlite:///db.db"
@@ -36,9 +36,6 @@ class Association(Base):
         association_id = str(association_id)
         with Session.begin() as session:
             association = session.get(Association, association_id)
-            
-            if association is None:
-                return
             
             return association
     
@@ -223,22 +220,29 @@ class Lesson(Base):
 
             return lessons
     
-    @staticmethod
-    def change_status(lesson):
+    def change_status(self):
         with Session.begin() as session:
-            index = statuses.index(lesson.status)
+            index = statuses.index(self.status)
             
             if index >= len(statuses)-1:
-                lesson.status = statuses[0]
+                self.status = statuses[0]
             else:
-                lesson.status = statuses[index + 1]        
-            session.add(lesson)
+                self.status = statuses[index + 1]        
+            session.add(self)
     
-    @staticmethod
-    def change_description(lesson, text):
+    def change_description(self, text):
         with Session.begin() as session:
-            lesson.description = text   
-            session.add(lesson)
+            self.description = text  
+            session.add(self)
+    
+    def add_file(self, file_id, file_name):
+        File.add(self.lesson_id, file_id, file_name)
+    
+    def delete_file(self, file_id):
+        File.delete(file_id)
+    
+    def files(self):
+        return File.get_all_files(self.lesson_id)
     
     def __repr__(self):
         association: Association | None = Association.get(self.association_id)
@@ -248,6 +252,43 @@ class Lesson(Base):
             None if association is None else association.student_id,
         )
 
+class File(Base):
+    __tablename__ = "File"
+    id = Column(Integer, primary_key=True)
+    lesson_id = Column(Integer, ForeignKey('Lesson.lesson_id'))
+    file_id = Column(String)
+    file_name = Column(String)
+    
+    @staticmethod
+    def get(lesson_id, file_id):
+        with Session.begin() as session:
+            return session.query(File).filter(File.lesson_id==lesson_id, File.file_id==file_id).first()
+    
+    @staticmethod
+    def get_all_files(lesson_id):
+        with Session.begin() as session:
+            return session.query(File).filter(File.lesson_id==lesson_id).all()
+    
+    @staticmethod
+    def get_all_lessons(file_id):
+        with Session.begin() as session:
+            association = session.query(File).filter(File.file_id==file_id)
+
+            return association.all()
+    
+    @staticmethod
+    def add(lesson_id, file_id, file_name):
+        if File.get(lesson_id, file_id) is None:
+            with Session.begin() as session:
+                session.add(File(lesson_id=lesson_id, file_id=file_id, file_name=file_name))
+            
+    @staticmethod
+    def delete(file_id):
+        with Session.begin() as session:
+            file = session.get(File, file_id)
+            if file is not None:
+                session.delete(file)
+            
 def flush():
     Base.metadata.drop_all(bind=engine)
 
@@ -255,39 +296,40 @@ def create_db():
     Base.metadata.create_all(bind=engine)
 
 def main():
-    flush()
+    # flush()
     create_db()
-    users = [
-        (randint(1000000000, 9999999999), "BenjaminHunter", "Benjamin", "Hunter"),
-        (randint(1000000000, 9999999999), "IanMiller", "Ian", "Miller"),
-        (randint(1000000000, 9999999999), "GabriellePayne", "Gabrielle", "Payne"),
-        (randint(1000000000, 9999999999), "OwenColeman", "Owen", "Coleman"),
-        (randint(1000000000, 9999999999), "GabrielleOliver", "Gabrielle", "Oliver"),
-        (randint(1000000000, 9999999999), "CharlesLewis", "Charles", "Lewis"),
-        (randint(1000000000, 9999999999), "MollyVance", "Molly", "Vance"),
-        (randint(1000000000, 9999999999), "PenelopeQuinn", "Penelope", "Quinn"),
-        (randint(1000000000, 9999999999), "StevenMcLean", "Steven", "McLean"),
-        (randint(1000000000, 9999999999), "CarolynKing", "Carolyn", "King"),
-    ]
+    
+    # users = [
+    #     (randint(1000000000, 9999999999), "BenjaminHunter", "Benjamin", "Hunter"),
+    #     (randint(1000000000, 9999999999), "IanMiller", "Ian", "Miller"),
+    #     (randint(1000000000, 9999999999), "GabriellePayne", "Gabrielle", "Payne"),
+    #     (randint(1000000000, 9999999999), "OwenColeman", "Owen", "Coleman"),
+    #     (randint(1000000000, 9999999999), "GabrielleOliver", "Gabrielle", "Oliver"),
+    #     (randint(1000000000, 9999999999), "CharlesLewis", "Charles", "Lewis"),
+    #     (randint(1000000000, 9999999999), "MollyVance", "Molly", "Vance"),
+    #     (randint(1000000000, 9999999999), "PenelopeQuinn", "Penelope", "Quinn"),
+    #     (randint(1000000000, 9999999999), "StevenMcLean", "Steven", "McLean"),
+    #     (randint(1000000000, 9999999999), "CarolynKing", "Carolyn", "King"),
+    # ]
 
-    ids = list(map(lambda user: user[0], users))
+    # ids = list(map(lambda user: user[0], users))
     
-    with Session.begin() as session:
-        for user in users:
-            user = User(user_id=user[0], username=user[1], first_name=user[2], last_name=user[3])
-            session.add(user)
+    # with Session.begin() as session:
+    #     for user in users:
+    #         user = User(user_id=user[0], username=user[1], first_name=user[2], last_name=user[3])
+    #         session.add(user)
         
-        association = Association(association_id="123", teacher_id=users[3][0], student_id=users[7][0])
-        session.add(association)
+    #     association = Association(association_id="123", teacher_id=users[3][0], student_id=users[7][0])
+    #     session.add(association)
     
-    with Session.begin() as session:
-        user1 = session.query(User).get(ids[3])
-        user2 = session.query(User).get(ids[5])
-        user3 = session.query(User).get(ids[7])
-        user4 = session.query(User).get(ids[9])
+    # with Session.begin() as session:
+    #     user1 = session.query(User).get(ids[3])
+    #     user2 = session.query(User).get(ids[5])
+    #     user3 = session.query(User).get(ids[7])
+    #     user4 = session.query(User).get(ids[9])
         
-        User.change_association(user1, "123")
-    print(User.get(user1.user_id))
+    #     User.change_association(user1, "123")
+    # print(User.get(user1.user_id))
     #     user2.add_teacher(user1)
     #     user3.add_student(user4)
     #     user1.add_teacher(user2)
